@@ -17,6 +17,8 @@ from LocalBrain.config import SETTINGS
 
 @dataclass(frozen=True)
 class IngestStats:
+    files_received: int
+    files_with_text: int
     documents_loaded: int
     chunks_created: int
 
@@ -65,9 +67,25 @@ def load_uploaded_files(uploaded_files: Iterable) -> List[Document]:
 
 
 def split_documents(docs: List[Document]) -> List[Document]:
+    return split_documents_with_params(docs)
+
+
+def split_documents_with_params(
+    docs: List[Document],
+    chunk_size: Optional[int] = None,
+    chunk_overlap: Optional[int] = None,
+) -> List[Document]:
+    cs = int(chunk_size or SETTINGS.chunk_size)
+    co = int(chunk_overlap or SETTINGS.chunk_overlap)
+    if cs <= 0:
+        cs = SETTINGS.chunk_size
+    if co < 0:
+        co = 0
+    if co >= cs:
+        co = max(0, cs - 1)
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size=SETTINGS.chunk_size,
-        chunk_overlap=SETTINGS.chunk_overlap,
+        chunk_size=cs,
+        chunk_overlap=co,
         separators=["\n\n", "\n", " ", ""],
     )
     chunks = splitter.split_documents(docs)
@@ -110,14 +128,28 @@ def ingest_files(
     collection_name: Optional[str] = None,
     reset: bool = False,
     embedding_model: Optional[str] = None,
+    chunk_size: Optional[int] = None,
+    chunk_overlap: Optional[int] = None,
 ) -> IngestStats:
     if reset:
         reset_vectorstore(collection_name=collection_name, embedding_model=embedding_model)
 
-    docs = load_uploaded_files(uploaded_files)
-    chunks = split_documents(docs)
+    files = list(uploaded_files or [])
+    docs = load_uploaded_files(files)
+    sources = set()
+    for d in docs:
+        meta = getattr(d, "metadata", None) or {}
+        src = meta.get("source")
+        if src:
+            sources.add(str(src))
+    chunks = split_documents_with_params(docs, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
     vs = get_vectorstore(collection_name=collection_name, embedding_model=embedding_model)
     if chunks:
         vs.add_documents(chunks)
         vs.persist()
-    return IngestStats(documents_loaded=len(docs), chunks_created=len(chunks))
+    return IngestStats(
+        files_received=len(files),
+        files_with_text=len(sources),
+        documents_loaded=len(docs),
+        chunks_created=len(chunks),
+    )

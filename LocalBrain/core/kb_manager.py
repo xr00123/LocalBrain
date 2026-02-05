@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Tuple
 
 from chromadb import PersistentClient
 
@@ -24,6 +24,20 @@ class KBManager:
     def _client(self) -> PersistentClient:
         self._persist_dir.mkdir(parents=True, exist_ok=True)
         return PersistentClient(path=str(self._persist_dir))
+
+    def get_storage_bytes(self) -> int:
+        try:
+            self._persist_dir.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            return 0
+        total = 0
+        for p in self._persist_dir.rglob("*"):
+            try:
+                if p.is_file():
+                    total += int(p.stat().st_size)
+            except Exception:
+                continue
+        return total
 
     def list_collections(self) -> List[str]:
         cols = self._client().list_collections()
@@ -50,14 +64,55 @@ class KBManager:
         client.delete_collection(name=name)
         client.create_collection(name=name)
 
-    def ingest(self, uploaded_files: Iterable, collection_name: str, embedding_model: str) -> Dict[str, int]:
+    def delete_file(self, collection_name: str, filename: str) -> None:
+        filename = filename.strip()
+        if not filename:
+            raise ValueError("文件名不能为空。")
+        col = self._client().get_collection(name=collection_name)
+        col.delete(where={"source": filename})
+
+    def get_metrics(self, collection_name: str) -> Tuple[int, int]:
+        col = self._client().get_collection(name=collection_name)
+        chunk_count = int(col.count() or 0)
+        if chunk_count <= 0:
+            return 0, 0
+        file_count = 0
+        try:
+            got = col.get(include=["metadatas"])
+            metas = got.get("metadatas") or []
+            sources = set()
+            for m in metas:
+                meta = m or {}
+                src = meta.get("source")
+                if src:
+                    sources.add(str(src))
+            file_count = len(sources)
+        except Exception:
+            file_count = 0
+        return file_count, chunk_count
+
+    def ingest(
+        self,
+        uploaded_files: Iterable,
+        collection_name: str,
+        embedding_model: str,
+        chunk_size: Optional[int] = None,
+        chunk_overlap: Optional[int] = None,
+    ) -> Dict[str, int]:
         stats = ingest_files(
             uploaded_files,
             collection_name=collection_name,
             reset=False,
             embedding_model=embedding_model,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
         )
-        return {"documents_loaded": stats.documents_loaded, "chunks_created": stats.chunks_created}
+        return {
+            "files_received": stats.files_received,
+            "files_with_text": stats.files_with_text,
+            "documents_loaded": stats.documents_loaded,
+            "chunks_created": stats.chunks_created,
+        }
 
     def list_chunks(self, collection_name: str) -> List[ChunkRow]:
         col = self._client().get_collection(name=collection_name)
