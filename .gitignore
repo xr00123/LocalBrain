@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+*.egg-info/
+
+# LocalBrain specific
+LocalBrain/.localbrain/
+.localbrain/
+
+# IDE / System
+.DS_Store
+.idea/
+.vscode/
+.trae/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Vercel
+.vercel/

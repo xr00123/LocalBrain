@@ -1,0 +1,8 @@
+streamlit>=1.36
+langchain>=0.2
+langchain-community>=0.2
+langchain-text-splitters>=0.2
+langchain-ollama>=0.1
+ollama>=0.6
+chromadb>=0.5
+pypdf>=4.0
