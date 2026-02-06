@@ -104,6 +104,7 @@ class ModelManager:
                 {
                     "name": name,
                     "size": _format_gb(size_bytes if isinstance(size_bytes, int) else None),
+                    "size_bytes": int(size_bytes) if isinstance(size_bytes, int) else None,
                     "family": _extract_family(name, details),
                     "params": _extract_params(name, details),
                 }
