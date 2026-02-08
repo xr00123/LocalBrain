@@ -11,10 +11,10 @@ if str(project_root) not in sys.path:
 
 from nicegui import app, ui
 
-from LocalBrain.nicegui_ui.chat_page import chat_page_content
-from LocalBrain.nicegui_ui.kb_page import kb_page_content
-from LocalBrain.nicegui_ui.layout import create_layout
-from LocalBrain.nicegui_ui.model_page import model_page_content
+from nicegui_ui.chat_page import chat_page_content
+from nicegui_ui.kb_page import kb_page_content
+from nicegui_ui.layout import create_layout
+from nicegui_ui.model_page import model_page_content
 
 
 def build_page(init_tab: str = "chat") -> None:

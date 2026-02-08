@@ -5,8 +5,8 @@ from typing import Dict, Iterable, List, Optional, Tuple
 
 from chromadb import PersistentClient
 
-from LocalBrain.config import SETTINGS
-from LocalBrain.core.processor import get_vectorstore, ingest_files
+from config import SETTINGS
+from core.processor import get_vectorstore, ingest_files
 
 
 @dataclass(frozen=True)

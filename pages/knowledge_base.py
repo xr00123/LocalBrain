@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import streamlit as st
 
-from LocalBrain.config import SETTINGS
-from LocalBrain.core.kb_manager import KBManager
+from config import SETTINGS
+from core.kb_manager import KBManager
 
 
 def _fmt_bytes(n: int) -> str:

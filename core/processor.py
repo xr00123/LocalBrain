@@ -12,7 +12,7 @@ from pypdf import PdfReader
 from langchain_community.vectorstores import Chroma
 from langchain_ollama import OllamaEmbeddings
 
-from LocalBrain.config import SETTINGS
+from config import SETTINGS
 
 
 @dataclass(frozen=True)

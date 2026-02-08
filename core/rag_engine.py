@@ -7,7 +7,7 @@ from langchain_core.documents import Document
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_ollama import ChatOllama
 
-from LocalBrain.config import SETTINGS
+from config import SETTINGS
 
 
 @dataclass(frozen=True)

@@ -9,10 +9,10 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_ollama import ChatOllama
 from nicegui import app, run, ui
 
-from LocalBrain.config import SETTINGS
-from LocalBrain.core.kb_manager import KBManager
-from LocalBrain.core.model_manager import ModelManager
-from LocalBrain.core.processor import get_vectorstore
+from config import SETTINGS
+from core.kb_manager import KBManager
+from core.model_manager import ModelManager
+from core.processor import get_vectorstore
 
 
 def _to_lc_messages(history: List[Dict[str, str]]) -> list:

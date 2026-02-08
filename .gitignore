@@ -24,3 +24,6 @@ LocalBrain/.localbrain/
 
 # Vercel
 .vercel/
+
+# NiceGUI
+.nicegui/

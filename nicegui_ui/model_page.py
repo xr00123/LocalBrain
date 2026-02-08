@@ -7,7 +7,7 @@ from typing import Dict, Optional, Tuple
 
 from nicegui import ui
 
-from LocalBrain.core.model_manager import ModelManager
+from core.model_manager import ModelManager
 
 
 def _fmt_bytes(n: int) -> str:

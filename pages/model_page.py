@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 import streamlit as st
 
-from LocalBrain.core.model_manager import ModelManager
+from core.model_manager import ModelManager
 
 
 def app():
