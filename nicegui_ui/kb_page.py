@@ -76,17 +76,17 @@ def kb_page_content() -> None:
             ui.label("知识库").classes("text-2xl font-bold text-slate-900")
 
         try:
-            collections = kbm.list_collections()
+            kb_list = kbm.list_kb_info()
         except Exception:
-            collections = []
+            kb_list = []
 
-        if not collections:
+        if not kb_list:
             with ui.card().classes("rounded-xl shadow-sm border border-gray-200 bg-white p-6"):
                 ui.label("还没有知识库").classes("font-bold text-slate-900")
                 ui.label("请先创建一个知识库，然后上传文件进行索引。").classes(
                     "text-sm text-gray-500 font-medium mt-1"
                 )
-                name_in = ui.input("知识库名称").classes(
+                name_in = ui.input("知识库名称（支持中文）").classes(
                     "mt-5 w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-indigo-500"
                 )
                 ui.button(
@@ -95,9 +95,86 @@ def kb_page_content() -> None:
                 ).classes("mt-4 bg-black text-white rounded-lg px-4 py-2 hover:bg-gray-800")
             return
 
-        kb_select = ui.select(collections, value=collections[0], label="当前知识库").classes(
-            "max-w-lg w-full"
-        )
+        # Prepare options for select: {id: display_name}
+        kb_options = {kb["id"]: kb["name"] for kb in kb_list}
+        first_kb_id = kb_list[0]["id"]
+
+        with ui.row().classes("w-full items-center gap-4"):
+            kb_select = ui.select(kb_options, value=first_kb_id, label="当前知识库").classes(
+                "flex-1 max-w-lg"
+            )
+            with ui.button(icon="settings").props("flat round").classes("text-gray-500"):
+                with ui.menu():
+                    ui.menu_item("重命名", on_click=lambda: open_rename_dialog())
+                    ui.menu_item("删除", on_click=lambda: open_delete_dialog())
+
+        def open_rename_dialog():
+            # Get current display name
+            current_id = kb_select.value
+            current_name = kb_select.options.get(current_id, "")
+            
+            with ui.dialog() as dialog, ui.card():
+                ui.label("重命名知识库").classes("text-lg font-bold")
+                new_name_input = ui.input("新名称", value=current_name).classes("w-full")
+                
+                def _do_rename():
+                    kb_id = kb_select.value
+                    new_name = new_name_input.value
+                    try:
+                        kbm.rename_collection(kb_id, new_name)
+                        ui.notify("重命名成功", type="positive")
+                        
+                        # Update selector
+                        opts = kb_select.options.copy()
+                        opts[kb_id] = new_name
+                        kb_select.set_options(opts)
+                        # Value (ID) remains the same, but label updates
+                        kb_select.update()
+                        
+                        dialog.close()
+                    except Exception as e:
+                        ui.notify(str(e), type="negative")
+
+                with ui.row().classes("w-full justify-end mt-4"):
+                    ui.button("取消", on_click=dialog.close).props("flat")
+                    ui.button("确定", on_click=_do_rename).classes("bg-black text-white")
+            dialog.open()
+
+        def open_delete_dialog():
+            current_id = kb_select.value
+            current_name = kb_select.options.get(current_id, "")
+            
+            with ui.dialog() as dialog, ui.card():
+                ui.label("删除知识库").classes("text-lg font-bold text-red-600")
+                ui.label(f"确定要删除知识库 '{current_name}' 吗？此操作不可恢复。").classes("mt-2")
+                
+                def _do_delete():
+                    kb_id = kb_select.value
+                    try:
+                        kbm.delete_collection(kb_id)
+                        ui.notify(f"已删除知识库: {current_name}", type="positive")
+                        
+                        # Update selector
+                        opts = kb_select.options.copy()
+                        if kb_id in opts:
+                            del opts[kb_id]
+                        
+                        if not opts:
+                            # No KBs left, reload to show empty state
+                            ui.navigate.to("/kb")
+                        else:
+                            kb_select.set_options(opts)
+                            # Select the first available one
+                            kb_select.set_value(next(iter(opts)))
+                        
+                        dialog.close()
+                    except Exception as e:
+                        ui.notify(str(e), type="negative")
+
+                with ui.row().classes("w-full justify-end mt-4"):
+                    ui.button("取消", on_click=dialog.close).props("flat")
+                    ui.button("删除", on_click=_do_delete).classes("bg-red-600 text-white")
+            dialog.open()
 
         # Dashboard
         dashboard_container = ui.element("div").classes("mt-6")
@@ -111,7 +188,7 @@ def kb_page_content() -> None:
                 
                 doc_count = len(doc_stats)
                 chunk_count = len(rows)
-                kb_count = len(collections)
+                kb_count = len(kb_select.options)
                 embed_model = SETTINGS.embedding_model
 
                 with dashboard_container:
@@ -178,7 +255,7 @@ def kb_page_content() -> None:
                             multiple=True,
                             auto_upload=True,
                             on_upload=on_upload,
-                            label="拖拽或点击上传 PDF/TXT",
+                            label="拖拽或点击上传",
                         ).classes(
                             "mt-5 w-full border-dashed border-2 border-gray-300 rounded-xl p-6 bg-slate-50"
                         )

@@ -40,6 +40,10 @@ class KBManager:
         return total
 
     def list_collections(self) -> List[str]:
+        """
+        Returns a list of collection IDs (actual ChromaDB names).
+        Kept for backward compatibility.
+        """
         cols = self._client().list_collections()
         names: List[str] = []
         for c in cols or []:
@@ -48,16 +52,70 @@ class KBManager:
                 names.append(str(name))
         return sorted(set(names))
 
-    def create_collection(self, name: str) -> None:
-        name = name.strip()
+    def list_kb_info(self) -> List[Dict[str, str]]:
+        """
+        Returns a list of dicts: {'id': 'kb_id', 'name': 'Display Name'}
+        """
+        cols = self._client().list_collections()
+        result = []
+        for c in cols or []:
+            cid = getattr(c, "name", "")
+            if not cid:
+                continue
+            meta = c.metadata or {}
+            display_name = meta.get("display_name", cid)
+            result.append({"id": cid, "name": display_name})
+        # Sort by display name
+        return sorted(result, key=lambda x: x["name"])
+
+    def _validate_display_name(self, name: str) -> None:
         if not name:
             raise ValueError("知识库名称不能为空。")
-        if name in set(self.list_collections()):
-            raise ValueError("该知识库已存在。")
-        self._client().create_collection(name=name)
+        # Check for duplicate display name
+        current_list = self.list_kb_info()
+        if any(kb["name"] == name for kb in current_list):
+            raise ValueError(f"知识库 '{name}' 已存在。")
+
+    def create_collection(self, name: str) -> None:
+        import uuid
+        name = name.strip()
+        self._validate_display_name(name)
+        
+        # Generate a safe internal ID
+        # Using uuid4 to ensure uniqueness and compliance with ChromaDB naming rules
+        safe_id = f"kb_{uuid.uuid4().hex}"
+        
+        self._client().create_collection(name=safe_id, metadata={"display_name": name})
 
     def delete_collection(self, name: str) -> None:
+        # name here is the ID
         self._client().delete_collection(name=name)
+
+    def rename_collection(self, kb_id: str, new_name: str) -> None:
+        """
+        Renames the display name of a knowledge base.
+        kb_id: The internal ID of the collection.
+        new_name: The new display name.
+        """
+        kb_id = kb_id.strip()
+        new_name = new_name.strip()
+        
+        # Check if new name is valid and doesn't exist (excluding self)
+        if not new_name:
+            raise ValueError("新名称不能为空。")
+            
+        current_list = self.list_kb_info()
+        # Check duplicates
+        for kb in current_list:
+            if kb["name"] == new_name and kb["id"] != kb_id:
+                raise ValueError(f"知识库 '{new_name}' 已存在。")
+        
+        try:
+            col = self._client().get_collection(name=kb_id)
+            # Only update metadata, not the underlying collection name
+            col.modify(metadata={"display_name": new_name})
+        except Exception as e:
+            raise ValueError(f"重命名失败: {str(e)}")
 
     def clear_collection(self, name: str) -> None:
         client = self._client()

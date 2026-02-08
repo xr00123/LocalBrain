@@ -77,15 +77,19 @@ def chat_page_content() -> None:
         model_names = [SETTINGS.llm_model]
 
     try:
-        collections = kbm.list_collections()
+        kb_list = kbm.list_kb_info()
     except Exception:
-        collections = []
-    collection_options = ["（不使用知识库）", *collections]
+        kb_list = []
+    
+    collection_options = {"（不使用知识库）": "（不使用知识库）"}
+    for kb in kb_list:
+        collection_options[kb["id"]] = kb["name"]
 
     store = app.storage.user
     store.setdefault("chat_messages", [])
     store.setdefault("chat_model", model_names[0] if model_names else SETTINGS.llm_model)
-    store.setdefault("chat_kb", collection_options[0])
+    # Default to the first key (which is "（不使用知识库）")
+    store.setdefault("chat_kb", "（不使用知识库）")
     store.setdefault("chat_temperature", 0.2)
     store.setdefault("chat_max_tokens", 2048)
 

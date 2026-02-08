@@ -20,6 +20,7 @@ _download_state = {
     "message": ""
 }
 _download_lock = threading.Lock()
+_stop_event = threading.Event()
 
 
 def _format_gb(size_bytes: Optional[int]) -> str:
@@ -135,6 +136,10 @@ class ModelManager:
                 "message": ""
             })
 
+    def cancel_download(self):
+        """取消当前下载任务"""
+        _stop_event.set()
+
     def start_pull_model_thread(self, model_name: str) -> Tuple[bool, str]:
         """启动后台线程下载模型"""
         with _download_lock:
@@ -142,6 +147,7 @@ class ModelManager:
                 current = _download_state.get("model_name")
                 return False, f"已有正在进行的下载任务: {current}"
             
+            _stop_event.clear()
             _download_state.update({
                 "model_name": model_name,
                 "status": "running",
@@ -159,6 +165,15 @@ class ModelManager:
         try:
             for update in self.pull_model(model_name):
                 with _download_lock:
+                    # 如果状态已经被标记为 cancelled/error 等（非 running），可能外部干预了？
+                    # 主要是处理停止信号
+                    if _stop_event.is_set():
+                        _download_state.update({
+                            "status": "error",
+                            "message": "下载已取消"
+                        })
+                        break
+                    
                     _download_state.update({
                         "status": update["status"],
                         "percent": update["percent"],
@@ -178,6 +193,10 @@ class ModelManager:
         try:
             stream = ollama.pull(model_name, stream=True)
             for part in stream:
+                if _stop_event.is_set():
+                    yield {"status": "error", "percent": percent, "message": "下载已取消"}
+                    return
+
                 payload = part if isinstance(part, dict) else dict(part)
                 status_text = str(payload.get("status") or "").strip()
                 digest = str(payload.get("digest") or "").strip()
